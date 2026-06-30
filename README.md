@@ -86,6 +86,12 @@ The algorithm generates a summarized graph consisting of **supernodes** and **su
 
 ---
 
+## Acknowledgments
+This project builds upon existing research in graph summarization. 
+Specifically, it incorporates elements from:
+- SSAG (Ali et al., 2024)
+- Graph Summarization with Controlled Utility Loss (Hajiabadi et al., 2021)
+
 # Citation
 
 If you use this code in your research, please cite the corresponding paper describing the AUSC method.
