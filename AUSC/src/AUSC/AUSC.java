@@ -4,6 +4,25 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
+/**
+ * AUSC: Attributed Utility-based Similarity Score Approximation
+ *
+ * This implementation is partially inspired by and builds upon 
+ * the following works:
+ *
+ * 1) Hajiabadi et al. (2021), "Graph Summarization with Controlled Utility Loss",
+ *    Proceedings of KDD.
+ *
+ * 2) Ali et al. (2024), "SSAG: Summarization and Sparsification of Attributed Graphs",
+ *    ACM TKDD.
+ *
+ * Certain structural and utility-control components are adapted 
+ * and extended in this implementation. The framework has been 
+ * significantly modified and augmented to support attributed graphs 
+ * and scalable utility-based similarity approximation.
+ *
+ * Implementation and extensions by Shadi Azizi.
+ */
 
 public class AUSC {
     static CountMinSketch sketch;
