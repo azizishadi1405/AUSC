@@ -4,25 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.*;
-/**
- * AUSC: Attributed Utility-based Similarity Score Approximation
- *
- * This implementation is partially inspired by and builds upon 
- * the following works:
- *
- * 1) Hajiabadi et al. (2021), "Graph Summarization with Controlled Utility Loss",
- *    Proceedings of KDD.
- *
- * 2) Ali et al. (2024), "SSAG: Summarization and Sparsification of Attributed Graphs",
- *    ACM TKDD.
- *
- * Certain structural and utility-control components are adapted 
- * and extended in this implementation. The framework has been 
- * significantly modified and augmented to support attributed graphs 
- * and scalable utility-based similarity approximation.
- *
- * Implementation and extensions by Shadi Azizi.
- */
 
 public class AUSC {
     static CountMinSketch sketch;
@@ -55,6 +36,7 @@ public class AUSC {
     private static PrintStream ps2hop,psMST2hop,psSU,psSUattrs,psSE,psresult,pshistsupernode;
     private static double[][] twoHopEdgeList,MSTEdgelist,selectedpairs;
     static double[] purityattrs;
+    static long seed=30;
 
     private static void normalizeNodeIS(){
         double sumNodeIS=0;
@@ -174,8 +156,112 @@ public class AUSC {
 
     }
 
-
     public static ArrayList<Pair> samplePairsWeighted_Treebased(int size) {
+        //int numsamnonzero=0;
+        ArrayList<Pair> samplePairs = new ArrayList<Pair>();
+        int presize=0,nochange=0;
+        while (samplePairs.size() < size && SamplingTreeRoot.weight>0 && ((attrebuted_g ==1 && nochange<100)|| attrebuted_g ==0)) {
+            //  while (samplePairs.size() < size && SamplingTreeRoot.weight>0 ) {
+            //System.out.println("samplePairs.size()"+samplePairs.size()+"presize "+presize);
+            if(samplePairs.size()==presize){
+                nochange=nochange+1;
+            }
+            presize=samplePairs.size();
+            // while (numsamnonzero < size) {
+            //System.out.println("samplePairs.size()"+samplePairs.size());
+            //System.out.println("SamplingTreeRoot.weight"+SamplingTreeRoot.weight);
+            // e.g., 1..30
+            Random random = new Random(seed);
+            //double value = random.nextDouble() * SamplingTreeRoot.weight;
+            double value = RANDOM.nextDouble() * SamplingTreeRoot.weight;
+            //System.out.println("value"+value);
+            int v1 = getLeaf(value, SamplingTreeRoot);
+            //System.out.println("v1"+v1);
+            // value = random.nextDouble() * SamplingTreeRoot.weight;
+            int hash=G.vertexes.get(v1).hash;
+            //int v2 = getLeaf(value, SamplingTreeRoot);
+            //int v2 = getLeafwithhash(hash, SamplingTreeRoot);
+            int [] neigharr=G.getneighborsarry(hash);
+
+            Set<Integer> candidates = G.getneighbors(hash);
+            double maxScore = -1 * Double.MAX_VALUE;
+            Pair bestScoringPair = null;
+            value = random.nextInt(candidates.size());
+            int f = -1;
+            if (Degree.get(hash)==1){
+                Pair p = new Pair(v1, hash);
+                double score_ut=computeScore_utility(p);
+                double score_final=score_ut;
+                if (attrebuted_g==1){
+                    score_final=0.5*score_final+0.5*compute_score_attribute(p);
+                }
+                p.setScore(score_final);
+                samplePairs.add(p);
+                nochange=0;
+                G.vertexes.get(v1).visited=G.vertexes.get(v1).visited+1;
+                deleteSamplingNode(G.vertexes.get(v1).nodeRef);
+                continue;
+            }
+            for (int v2 : candidates) {
+                // f++;
+                if (v2 == v1) continue;
+                Vertex vb = G.vertexes.get(v2);
+                if (vb == null) continue;
+                Pair p = new Pair(v1, v2);
+                double score_ut=computeScore_utility(p);
+                double score_att=0;
+                double score_final=score_ut;
+                if (attrebuted_g==1){
+                    score_att=compute_score_attribute(p);
+                    //  System.out.println("score_ut "+score_ut+ "score_att "+score_att);
+                    score_final=1*score_final+0*score_att;
+                    //  System.out.println("score_final "+score_final);
+                }
+                //double score =0.5*approxDotProductJaccard(p) + 0.5*approxDotProductGOterm(p);
+
+                p.setScore(score_final);
+                if (score_final > maxScore && ufmerge.find(v1) != ufmerge.find(v2) ) {
+                    if(attrebuted_g==1){
+                        //System.out.println("G.Vertexhashes.get(hash).size()"+G.Vertexhashes.get(hash).size()+" value "+value+" v2 "+v2);
+                        if (check_have_same_attribute(G.vertexes.get(v1),G.vertexes.get(v2))>0){
+                            bestScoringPair = p;
+                            maxScore = score_final;
+                        }}}
+                // if (score>=0.6){
+                if (score_ut>100){
+                    if (ufmerge.find(v1)!= ufmerge.find(v2)){
+                        if(attrebuted_g==1){
+                            //System.out.println("G.Vertexhashes.get(hash).size()"+G.Vertexhashes.get(hash).size()+" value "+value+" v2 "+v2);
+                            if (check_have_same_attribute(G.vertexes.get(v1),G.vertexes.get(v2))>0){
+                                G.vertexes.get(v1).selectedpair=v2;
+                                ufmerge.union(v1,v2);
+                                // System.out.println("v1"+v1+" v2 "+v2+"ufmerge.find(v1)"+ufmerge.find(v1)+"ufmerge.find(v2)"+ufmerge.find(v2));
+                                samplePairs.add(p);
+                                nochange=0;
+                                G.vertexes.get(v1).visited=G.vertexes.get(v1).visited+1;
+                                G.vertexes.get(v2).visited=G.vertexes.get(v2).visited+1;
+                            }}}
+                }
+                if (f>=value) break;
+            }
+            if ( bestScoringPair!=null) {
+                int v2 = bestScoringPair.getNode2();
+                if (ufmerge.find(v1) != ufmerge.find(v2)) {
+                    ufmerge.union(v1, v2);
+                    samplePairs.add(bestScoringPair);
+                    nochange = 0;
+                    G.vertexes.get(v1).visited = G.vertexes.get(v1).visited + 1;
+                    G.vertexes.get(v2).visited = G.vertexes.get(v2).visited + 1;
+                }
+            }
+            if (G.vertexes.get(v1).visited> 1) {
+                deleteSamplingNode(G.vertexes.get(v1).nodeRef);
+            }
+        }
+        return samplePairs;
+    }
+
+    public static ArrayList<Pair> samplePairsWeighted_Treebased2(int size) {
         ArrayList<Pair> samplePairs = new ArrayList<Pair>();
         int presize=0,nochange=0;
         while (samplePairs.size() < size && SamplingTreeRoot.weight>0 && ((attrebuted_g==1 && nochange<100)|| attrebuted_g==0)) {
